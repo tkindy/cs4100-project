@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# Detect the background for a game given a directory
+# of its screenshots and write it to disk
+
 import numpy as np
 import sys
 from os import listdir
@@ -12,8 +15,7 @@ screensDir = sys.argv[1]
 counts = defaultdict(lambda: defaultdict(lambda: 0))
 width, height = int(sys.argv[2]), int(sys.argv[3])
 
-allItems = listdir(screensDir)
-items = random.choices(allItems, k = 30000)
+items = listdir(screensDir)
 numItems = len(items)
 boundary = max(numItems // 100, 1)
 

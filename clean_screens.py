@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# Keep a random sample of the screenshots in the given directory,
+# removing the rest
+
 from sys import argv
 from os import listdir, remove
 from os.path import join

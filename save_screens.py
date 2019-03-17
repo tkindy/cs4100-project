@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# Save a bunch of screenshots for Centipede to disk
+
 import gym
 import sys
 import time
