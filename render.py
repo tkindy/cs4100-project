@@ -2,7 +2,10 @@
 
 import numpy as np
 import scipy.misc as smp
+from sys import argv
 
-bg = np.load("background.npy")
+path = argv[1]
+
+bg = np.load(path)
 img = smp.toimage(bg)
 img.show()
