@@ -1,17 +1,14 @@
 import gym
-from collections import defaultdict, namedtuple
-from sympy.matrices import ImmutableMatrix
+from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-#An implementation of Sarsa specified for Centipede-ram-v0
-class Sarsa:
+class Sarsa(object):
 
-  def __init__(self, numGames):
-    self.env = gym.make('Centipede-ram-v0')
+  def __init__(self, env, numGames):
+    self.env = env
     self.qTable = defaultdict(float)
-    self.freqTable = defaultdict(int)
     self.numGames = numGames
 
     self.gamma = 0.99
@@ -20,22 +17,27 @@ class Sarsa:
     self.epsilonDrop = (self.epsilon - self.finalEpsilon) / self.numGames * 2
     self.alpha = 0.6
 
-  def greedyPolicy(self, state):
+  def getNextAction(self, state):
+    features = self.getFeatureVector(state)
+
     randomValue = np.random.rand()
     if (randomValue < self.epsilon):
       return self.env.action_space.sample()
 
-    qValues = { i: self.qTable[state, i] for i in range(18) }
+    qValues = { i: self.qTable[(features, i)] for i in range(self.env.action_space.n) }
     maxQValue = max(qValues.values())
 
     actions_with_max_q = [a for a, q in qValues.items() if q == maxQValue]
     return np.random.choice(actions_with_max_q)
 
   def updateQ(self, prevState, nextState, action, nextAction, reward, done):
-    qValue = self.qTable[nextState, nextAction]
-    self.freqTable[prevState, action] += 1
-    update = self.alpha * (reward + self.gamma * qValue * (1 - done)  - self.qTable[prevState, action])
-    self.qTable[prevState, action] += update
+    prevFeatures = self.getFeatureVector(prevState)
+    nextFeatures = self.getFeatureVector(nextState)
+
+    qValue = self.qTable[(nextFeatures, nextAction)]
+    prevQValue = self.qTable[(prevFeatures, action)]
+    update = self.alpha * (reward + self.gamma * qValue * (1 - done) - prevQValue)
+    self.qTable[(prevFeatures, action)] += update
 
   def updateEpsilon(self):
     self.epsilon = max(self.epsilon - self.epsilonDrop, self.finalEpsilon)
@@ -43,7 +45,6 @@ class Sarsa:
   def run(self):
     print("RUN %d Games..." % self.numGames)
     utility = 0
-    allStates = namedtuple('allStates', ['state'])
     prevState = None
     prevAction = 0
     rewards = np.zeros(self.numGames)
@@ -52,8 +53,9 @@ class Sarsa:
       currState = self.env.reset()
       utility = 0
       done = False
+
       while not done:
-        prevAction = self.greedyPolicy(allStates(ImmutableMatrix(currState)))
+        prevAction = self.getNextAction(currState)
         nextState, reward, done, _ = self.env.step(prevAction)
         if reward is not None:
           utility += reward
@@ -61,15 +63,24 @@ class Sarsa:
         prevState = currState
         currState = nextState
 
-        nextAction = self.greedyPolicy(ImmutableMatrix(currState))
+        nextAction = self.getNextAction(currState)
 
-        self.updateQ(allStates(ImmutableMatrix(prevState)), prevAction, reward, allStates(ImmutableMatrix(currState)), nextAction, done)
-
+        self.updateQ(prevState, currState, prevAction, nextAction, reward, done)
 
       self.updateEpsilon()
       rewards[n] = utility
 
     return rewards
+
+  def getFeatureVector(self, state):
+    raise NotImplementedError("getFeatureVector undefined!")
+
+class SarsaRam(Sarsa):
+  def __init__(self, numGames):
+    Sarsa.__init__(self, gym.make('Centipede-ram-v0'), numGames)
+
+  def getFeatureVector(self, state):
+    return tuple(state)
 
 def plotRewards(rewards):
   n = len(rewards)
@@ -81,6 +92,6 @@ def plotRewards(rewards):
   plt.show()
 
 numGames = int(sys.argv[1])
-s = Sarsa(numGames)
+s = SarsaRam(numGames)
 r = s.run()
 plotRewards(r)
