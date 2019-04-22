@@ -17,9 +17,7 @@ class Sarsa(object):
     self.epsilonDrop = (self.epsilon - self.finalEpsilon) / self.numGames * 2
     self.alpha = 0.6
 
-  def getNextAction(self, state):
-    features = self.getFeatureVector(state)
-
+  def getNextAction(self, features):
     randomValue = np.random.rand()
     if (randomValue < self.epsilon):
       return self.env.action_space.sample()
@@ -30,10 +28,7 @@ class Sarsa(object):
     actions_with_max_q = [a for a, q in qValues.items() if q == maxQValue]
     return np.random.choice(actions_with_max_q)
 
-  def updateQ(self, prevState, nextState, action, nextAction, reward, done):
-    prevFeatures = self.getFeatureVector(prevState)
-    nextFeatures = self.getFeatureVector(nextState)
-
+  def updateQ(self, prevFeatures, nextFeatures, action, nextAction, reward, done):
     qValue = self.qTable[(nextFeatures, nextAction)]
     prevQValue = self.qTable[(prevFeatures, action)]
     update = self.alpha * (reward + self.gamma * qValue * (1 - done) - prevQValue)
@@ -50,7 +45,7 @@ class Sarsa(object):
     rewards = np.zeros(self.numGames)
     for n in range(self.numGames):
       print("going through..." + str(n))
-      currState = self.env.reset()
+      currState = self.getFeatureVector(self.env.reset())
       utility = 0
       done = False
 
@@ -61,7 +56,7 @@ class Sarsa(object):
           utility += reward
 
         prevState = currState
-        currState = nextState
+        currState = self.getFeatureVector(nextState)
 
         nextAction = self.getNextAction(currState)
 
@@ -82,6 +77,64 @@ class SarsaRam(Sarsa):
   def getFeatureVector(self, state):
     return tuple(state)
 
+class SarsaBass(Sarsa):
+  def __init__(self, backgroundFile, numGames):
+    Sarsa.__init__(self, gym.make('Centipede-v0'), numGames)
+
+    self.background = np.load(backgroundFile, allow_pickle = True)
+    self.height = 250
+    self.width = 160
+    self.m = 10
+    self.n = 8
+    self.blockHeight = int(self.height / self.m)
+    self.blockWidth = int(self.width / self.n)
+
+  def getFeatureVector(self, state):
+    print("get")
+    convertedState = [ self._convertRow(row, y) for y, row in enumerate(state) ]
+    blocks = self._createBlocks(convertedState)
+    subvectors = self._createSubvectors(blocks)
+    return tuple(subvectors)
+
+  def _convertRow(self, row, y):
+    return [ self._convertColor(tuple(color), x, y) for x, color in enumerate(row) ]
+
+  def _convertColor(self, color, x, y):
+    if color == tuple(self.background[y][x]):
+      return -1
+
+    r, g, b = color
+    hashCode = r
+    hashCode += (31 * hashCode) + g
+    hashCode += (31 * hashCode) + b
+
+    return hashCode % 8
+
+  def _createBlocks(self, state):
+    return [ self._createBlock(state, x, y) for x in range(self.m) for y in range(self.n) ]
+
+  def _createBlock(self, state, x, y):
+    startX, endX = self._getBounds(x, self.blockWidth)
+    startY, endY = self._getBounds(y, self.blockHeight)
+
+    return [ row[startX:endX] for row in state[startY:endY] ]
+
+  def _getBounds(self, index, scale):
+    return (index * scale, (index + 1) * scale)
+
+  def _createSubvectors(self, blocks):
+    return [ self._createSubvector(block) for block in blocks ]
+
+  def _createSubvector(self, block):
+    vector = 0
+
+    for row in block:
+      for color in row:
+        if color != -1:
+          vector |= 1 << color
+
+    return vector
+
 def plotRewards(rewards):
   n = len(rewards)
   running_avg = [ np.mean(rewards[max(0, t - 100):(t + 1)]) for t in range(n) ]
@@ -91,7 +144,8 @@ def plotRewards(rewards):
   plt.ylabel('utility', fontsize=16)
   plt.show()
 
-numGames = int(sys.argv[1])
-s = SarsaRam(numGames)
-r = s.run()
-plotRewards(r)
+if __name__ == '__main__':
+  numGames = int(sys.argv[1])
+  s = SarsaBass('../background.npy', numGames)
+  r = s.run()
+  plotRewards(r)
