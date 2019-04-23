@@ -49,7 +49,9 @@ class Sarsa(object):
       utility = 0
       done = False
 
+      i = 0
       while not done:
+        print(i)
         prevAction = self.getNextAction(currState)
         nextState, reward, done, _ = self.env.step(prevAction)
         if reward is not None:
@@ -61,6 +63,8 @@ class Sarsa(object):
         nextAction = self.getNextAction(currState)
 
         self.updateQ(prevState, currState, prevAction, nextAction, reward, done)
+
+        i += 1
 
       self.updateEpsilon()
       rewards[n] = utility
@@ -90,7 +94,6 @@ class SarsaBass(Sarsa):
     self.blockWidth = int(self.width / self.n)
 
   def getFeatureVector(self, state):
-    print("get")
     convertedState = [ self._convertRow(row, y) for y, row in enumerate(state) ]
     blocks = self._createBlocks(convertedState)
     subvectors = self._createSubvectors(blocks)
